@@ -1,0 +1,18 @@
+---
+apiVersion: kubecompute.io/v1alpha1
+kind: Node
+metadata:
+  namespace: default
+  name: test-node
+spec:
+  backend: docker
+  image: alpine:latest
+  cmd: ["sleep", "infinity"]
+
+  # Optional
+  health:
+    backend: ping
+    url: http://localhost:8080/healthz
+  lifecycle:
+    backend: docker
+    ops: ["start", "stop", "reboot"]
