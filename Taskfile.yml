@@ -1,0 +1,10 @@
+version: '3'
+
+tasks:
+  swagger:
+    cmds:
+      - swag init --parseDependency --parseInternal
+      - swag fmt
+  serve:
+    cmds:
+      - go run main.go serve

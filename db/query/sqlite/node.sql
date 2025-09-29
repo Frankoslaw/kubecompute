@@ -24,6 +24,7 @@ WHERE namespace = ? AND name = ?;
 -- name: ListNodes :many
 SELECT * FROM nodes
 WHERE deleted_at IS NULL
+  AND (? = '' OR namespace = ?)
 ORDER BY created_at DESC;
 
 -- name: ListNodesWithDeleted :many
@@ -32,12 +33,12 @@ ORDER BY created_at DESC;
 
 -- name: UpdateNode :one
 UPDATE nodes
-SET image = ?, cmd = ?, container_id = ?, updated_at = CURRENT_TIMESTAMP,  resource_version = resource_version + 1
-WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND resource_version = ?
+SET image = ?, cmd = ?, container_id = ?, updated_at = CURRENT_TIMESTAMP, resource_version = resource_version + 1
+WHERE namespace = ?  AND name = ? AND deleted_at IS NULL AND (? = 0 OR resource_version = ?)
 RETURNING *;
 
 -- name: SoftDeleteNode :one
 UPDATE nodes
 SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, resource_version = resource_version + 1
-WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND resource_version = ?
+WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND (? = 0 OR resource_version = ?)
 RETURNING *;

@@ -1,40 +1,74 @@
-/*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
-	"fmt"
+	"database/sql"
+	"kubecompute/internal/adapter/handler"
+	"kubecompute/internal/adapter/provision"
+	"kubecompute/internal/adapter/repository/sqlc"
+	"kubecompute/internal/core/port"
+	"kubecompute/internal/core/service"
+	"kubecompute/internal/core/util"
 
+	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
+
+	_ "modernc.org/sqlite"
+
+	_ "kubecompute/docs"
+
+	swaggerfiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// serveCmd represents the serve command
 var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Use: "serve",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Connect to DB
+		conn, err := connectDB("./kubecompute.db?_journal_mode=WAL&_synchronous=NORMAL&_busy_timeout=5000")
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("serve called")
+		// Setup repository and services
+		repository := sqlc.NewSqlcNodeRepository(conn)
+		dockerProvider, err := provision.NewDockerNodeProvider()
+		if err != nil {
+			return err
+		}
+		reconciler := service.NewNodeReconciler(repository, dockerProvider)
+
+		workQueue := util.NewWorkQueue[port.ReconcileRequest](32)
+		controller := service.NewNodeController(repository, reconciler, workQueue)
+		controller.Start(cmd.Context())
+
+		nodeService := service.NewNodeService(repository, controller)
+
+		// Setup Gin router and handlers
+		router := gin.Default()
+		nodeHandler := handler.NewNodeHandler(nodeService)
+		nodeHandler.RegisterRoutes(router)
+
+		// Swagger endpoint
+		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+
+		// Start server
+		return router.Run(":8080")
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
-	// Here you will define your flags and configuration settings.
+}
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// serveCmd.PersistentFlags().String("foo", "", "A help for foo")
+func connectDB(sqliteDSN string) (*sql.DB, error) {
+	conn, err := sql.Open("sqlite", sqliteDSN)
+	if err != nil {
+		return nil, err
+	}
+	conn.SetMaxIdleConns(1)
+	conn.SetMaxOpenConns(1)
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// serveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	return conn, nil
 }

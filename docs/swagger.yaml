@@ -1,0 +1,229 @@
+definitions:
+  domain.Node:
+    properties:
+      metadata:
+        $ref: '#/definitions/domain.ObjectMeta'
+      spec:
+        $ref: '#/definitions/domain.NodeSpec'
+      status:
+        $ref: '#/definitions/domain.NodeStatus'
+    type: object
+  domain.NodeSpec:
+    properties:
+      cmd:
+        items:
+          type: string
+        type: array
+      image:
+        type: string
+    type: object
+  domain.NodeStatus:
+    properties:
+      containerID:
+        type: string
+    type: object
+  domain.ObjectMeta:
+    properties:
+      name:
+        type: string
+      namespace:
+        type: string
+      resourceVersion:
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /nodes:
+    get:
+      description: Returns all nodes, ignoring namespace
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Node'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List all nodes across all namespaces
+      tags:
+      - nodes
+  /ns/{namespace}/nodes:
+    get:
+      description: Returns nodes filtered by namespace
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Node'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List nodes in a namespace
+      tags:
+      - nodes
+    post:
+      consumes:
+      - application/json
+      description: Create a new node in the given namespace
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Node object
+        in: body
+        name: node
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Node'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.Node'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a node
+      tags:
+      - nodes
+  /ns/{namespace}/nodes/{name}:
+    delete:
+      description: Soft deletes a node in a namespace
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Node name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Node object
+        in: body
+        name: node
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Node'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a node
+      tags:
+      - nodes
+    get:
+      description: Returns a single node by namespace and name
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Node name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Node'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a node
+      tags:
+      - nodes
+    put:
+      consumes:
+      - application/json
+      description: Updates a node in a namespace
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Node name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Node object
+        in: body
+        name: node
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Node'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Node'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a node
+      tags:
+      - nodes
+swagger: "2.0"

@@ -38,8 +38,12 @@ func (ns *NodeService) GetNode(ctx context.Context, name domain.NamespacedName) 
 	return ns.repository.GetNode(ctx, name)
 }
 
-func (ns *NodeService) ListNodes(ctx context.Context) ([]*domain.Node, error) {
-	return ns.repository.ListNodes(ctx)
+func (ns *NodeService) ListNodes(ctx context.Context, namespace *string) ([]*domain.Node, error) {
+	var s string = ""
+	if namespace != nil {
+		s = *namespace
+	}
+	return ns.repository.ListNodes(ctx, s)
 }
 
 func (ns *NodeService) UpdateNode(ctx context.Context, node *domain.Node) (*domain.Node, error) {

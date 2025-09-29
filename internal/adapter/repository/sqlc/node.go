@@ -66,6 +66,8 @@ func (s *SqliteNodeRepository) SoftDeleteNode(ctx context.Context, node *domain.
 		Namespace:       node.ObjectMeta.Namespace,
 		Name:            node.ObjectMeta.Name,
 		ResourceVersion: int64(node.ObjectMeta.ResourceVersion),
+		// TODO: Fix this doubled parameter due to sqlc limitations
+		Column3: int64(node.ObjectMeta.ResourceVersion),
 	})
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -107,8 +109,12 @@ func (s *SqliteNodeRepository) GetNodeWithDeleted(ctx context.Context, name doma
 	return dbNodeToDomain(row), nil
 }
 
-func (s *SqliteNodeRepository) ListNodes(ctx context.Context) ([]*domain.Node, error) {
-	rows, err := s.queries.ListNodes(ctx)
+func (s *SqliteNodeRepository) ListNodes(ctx context.Context, namespace string) ([]*domain.Node, error) {
+	rows, err := s.queries.ListNodes(ctx, db.ListNodesParams{
+		Namespace: namespace,
+		// TODO: Fix this doubled parameter due to sqlc limitations
+		Column1: namespace,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +142,10 @@ func (s *SqliteNodeRepository) ListNodesWithDeleted(ctx context.Context) ([]*dom
 func (s *SqliteNodeRepository) UpdateNode(ctx context.Context, node *domain.Node) (*domain.Node, error) {
 	row, err := s.queries.UpdateNode(ctx, db.UpdateNodeParams{
 		// metadata
-		Namespace:       node.ObjectMeta.Namespace,
-		Name:            node.ObjectMeta.Name,
+		Namespace: node.ObjectMeta.Namespace,
+		Name:      node.ObjectMeta.Name,
+		// TODO: Fix this doubled parameter due to sqlc limitations
+		Column6:         int64(node.ObjectMeta.ResourceVersion),
 		ResourceVersion: int64(node.ObjectMeta.ResourceVersion),
 		// spec
 		Image: node.Spec.Image,

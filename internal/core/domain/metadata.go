@@ -1,8 +1,8 @@
 package domain
 
 type NamespacedName struct {
-	Namespace string `yaml:"namespace"`
-	Name      string `yaml:"name"`
+	Namespace string `json:"namespace" yaml:"namespace"`
+	Name      string `json:"name" yaml:"name"`
 }
 
 func (nn NamespacedName) String() string {
@@ -17,9 +17,9 @@ func (nn NamespacedName) ObjectMeta() ObjectMeta {
 }
 
 type ObjectMeta struct {
-	Namespace       string `yaml:"namespace"`
-	Name            string `yaml:"name"`
-	ResourceVersion int    `yaml:"resourceVersion,omitempty"`
+	Namespace       string `json:"namespace" yaml:"namespace"`
+	Name            string `json:"name" yaml:"name"`
+	ResourceVersion int    `json:"resourceVersion,omitempty" yaml:"resourceVersion,omitempty"`
 }
 
 func (om *ObjectMeta) NamespacedName() NamespacedName {

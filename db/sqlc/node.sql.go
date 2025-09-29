@@ -117,11 +117,17 @@ func (q *Queries) GetNodeWithDeleted(ctx context.Context, arg GetNodeWithDeleted
 const listNodes = `-- name: ListNodes :many
 SELECT id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at FROM nodes
 WHERE deleted_at IS NULL
+  AND (? = '' OR namespace = ?)
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListNodes(ctx context.Context) ([]Node, error) {
-	rows, err := q.db.QueryContext(ctx, listNodes)
+type ListNodesParams struct {
+	Column1   interface{}
+	Namespace string
+}
+
+func (q *Queries) ListNodes(ctx context.Context, arg ListNodesParams) ([]Node, error) {
+	rows, err := q.db.QueryContext(ctx, listNodes, arg.Column1, arg.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -196,18 +202,24 @@ func (q *Queries) ListNodesWithDeleted(ctx context.Context) ([]Node, error) {
 const softDeleteNode = `-- name: SoftDeleteNode :one
 UPDATE nodes
 SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, resource_version = resource_version + 1
-WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND resource_version = ?
+WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND (? = 0 OR resource_version = ?)
 RETURNING id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at
 `
 
 type SoftDeleteNodeParams struct {
 	Namespace       string
 	Name            string
+	Column3         interface{}
 	ResourceVersion int64
 }
 
 func (q *Queries) SoftDeleteNode(ctx context.Context, arg SoftDeleteNodeParams) (Node, error) {
-	row := q.db.QueryRowContext(ctx, softDeleteNode, arg.Namespace, arg.Name, arg.ResourceVersion)
+	row := q.db.QueryRowContext(ctx, softDeleteNode,
+		arg.Namespace,
+		arg.Name,
+		arg.Column3,
+		arg.ResourceVersion,
+	)
 	var i Node
 	err := row.Scan(
 		&i.ID,
@@ -226,8 +238,8 @@ func (q *Queries) SoftDeleteNode(ctx context.Context, arg SoftDeleteNodeParams) 
 
 const updateNode = `-- name: UpdateNode :one
 UPDATE nodes
-SET image = ?, cmd = ?, container_id = ?, updated_at = CURRENT_TIMESTAMP,  resource_version = resource_version + 1
-WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND resource_version = ?
+SET image = ?, cmd = ?, container_id = ?, updated_at = CURRENT_TIMESTAMP, resource_version = resource_version + 1
+WHERE namespace = ?  AND name = ? AND deleted_at IS NULL AND (? = 0 OR resource_version = ?)
 RETURNING id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at
 `
 
@@ -237,6 +249,7 @@ type UpdateNodeParams struct {
 	ContainerID     sql.NullString
 	Namespace       string
 	Name            string
+	Column6         interface{}
 	ResourceVersion int64
 }
 
@@ -247,6 +260,7 @@ func (q *Queries) UpdateNode(ctx context.Context, arg UpdateNodeParams) (Node, e
 		arg.ContainerID,
 		arg.Namespace,
 		arg.Name,
+		arg.Column6,
 		arg.ResourceVersion,
 	)
 	var i Node
