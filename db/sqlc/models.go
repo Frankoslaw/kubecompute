@@ -9,13 +9,14 @@ import (
 )
 
 type Node struct {
-	ID          int64
-	Namespace   string
-	Name        string
-	Image       string
-	Cmd         string
-	ContainerID sql.NullString
-	DeletedAt   sql.NullTime
-	CreatedAt   sql.NullTime
-	UpdatedAt   sql.NullTime
+	ID              int64
+	Namespace       string
+	Name            string
+	ResourceVersion int64
+	Image           string
+	Cmd             string
+	ContainerID     sql.NullString
+	DeletedAt       sql.NullTime
+	CreatedAt       sql.NullTime
+	UpdatedAt       sql.NullTime
 }

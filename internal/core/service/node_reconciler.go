@@ -36,7 +36,8 @@ func (r *NodeReconciler) Reconcile(ctx context.Context, req port.ReconcileReques
 	}
 
 	if ok {
-		err = r.repository.UpdateNode(ctx, node)
+		// TODO: Create separate method for updating status for safety
+		_, err = r.repository.UpdateNode(ctx, node)
 		if err != nil {
 			return port.ReconcileResult{Requeue: true, RequeueAfter: 5 * time.Second}, err
 		}

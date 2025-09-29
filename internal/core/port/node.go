@@ -7,14 +7,22 @@ import (
 )
 
 type NodeRepository interface {
-	CreateNode(ctx context.Context, node *domain.Node) error
+	CreateNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
 	GetNode(ctx context.Context, name domain.NamespacedName) (*domain.Node, error)
 	ListNodes(ctx context.Context) ([]*domain.Node, error)
-	UpdateNode(ctx context.Context, node *domain.Node) error
-	SoftDeleteNode(ctx context.Context, name domain.NamespacedName) error
+	UpdateNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
+	SoftDeleteNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
 	// Includes soft-deleted nodes for reconciliation and nuke
 	GetNodeWithDeleted(ctx context.Context, name domain.NamespacedName) (*domain.Node, error)
 	ListNodesWithDeleted(ctx context.Context) ([]*domain.Node, error)
+}
+
+type NodeService interface {
+	CreateNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
+	GetNode(ctx context.Context, name domain.NamespacedName) (*domain.Node, error)
+	ListNodes(ctx context.Context) ([]*domain.Node, error)
+	UpdateNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
+	DeleteNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
 }
 
 type NodeController interface {

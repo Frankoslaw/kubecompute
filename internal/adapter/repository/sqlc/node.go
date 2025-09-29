@@ -1,3 +1,4 @@
+// TODO: Allow for bypasing resource version checks if not passed
 package sqlc
 
 import (
@@ -13,8 +14,9 @@ func dbNodeToDomain(dbNode db.Node) *domain.Node {
 	return &domain.Node{
 		// metadata
 		ObjectMeta: domain.ObjectMeta{
-			Namespace: dbNode.Namespace,
-			Name:      dbNode.Name,
+			Namespace:       dbNode.Namespace,
+			Name:            dbNode.Name,
+			ResourceVersion: int(dbNode.ResourceVersion),
 		},
 		// spec
 		Spec: domain.NodeSpec{
@@ -42,8 +44,8 @@ func NewSqlcNodeRepository(dbInstance *sql.DB) port.NodeRepository {
 	}
 }
 
-func (s *SqliteNodeRepository) CreateNode(ctx context.Context, node *domain.Node) error {
-	_, err := s.queries.CreateNode(ctx, db.CreateNodeParams{
+func (s *SqliteNodeRepository) CreateNode(ctx context.Context, node *domain.Node) (*domain.Node, error) {
+	row, err := s.queries.CreateNode(ctx, db.CreateNodeParams{
 		// metadata
 		Namespace: node.ObjectMeta.Namespace,
 		Name:      node.ObjectMeta.Name,
@@ -53,15 +55,26 @@ func (s *SqliteNodeRepository) CreateNode(ctx context.Context, node *domain.Node
 		// status
 		ContainerID: sql.NullString{String: node.Status.ContainerID, Valid: true},
 	})
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return dbNodeToDomain(row), nil
 }
 
-func (s *SqliteNodeRepository) SoftDeleteNode(ctx context.Context, name domain.NamespacedName) error {
-	err := s.queries.SoftDeleteNode(ctx, db.SoftDeleteNodeParams{
-		Namespace: name.Namespace,
-		Name:      name.Name,
+func (s *SqliteNodeRepository) SoftDeleteNode(ctx context.Context, node *domain.Node) (*domain.Node, error) {
+	row, err := s.queries.SoftDeleteNode(ctx, db.SoftDeleteNodeParams{
+		Namespace:       node.ObjectMeta.Namespace,
+		Name:            node.ObjectMeta.Name,
+		ResourceVersion: int64(node.ObjectMeta.ResourceVersion),
 	})
-	return err
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// TODO: Signal conflict errors
+			return nil, nil
+		}
+		return nil, err
+	}
+	return dbNodeToDomain(row), nil
 }
 
 func (s *SqliteNodeRepository) GetNode(ctx context.Context, name domain.NamespacedName) (*domain.Node, error) {
@@ -120,16 +133,24 @@ func (s *SqliteNodeRepository) ListNodesWithDeleted(ctx context.Context) ([]*dom
 	return nodes, nil
 }
 
-func (s *SqliteNodeRepository) UpdateNode(ctx context.Context, node *domain.Node) error {
-	err := s.queries.UpdateNode(ctx, db.UpdateNodeParams{
+func (s *SqliteNodeRepository) UpdateNode(ctx context.Context, node *domain.Node) (*domain.Node, error) {
+	row, err := s.queries.UpdateNode(ctx, db.UpdateNodeParams{
 		// metadata
-		Namespace: node.ObjectMeta.Namespace,
-		Name:      node.ObjectMeta.Name,
+		Namespace:       node.ObjectMeta.Namespace,
+		Name:            node.ObjectMeta.Name,
+		ResourceVersion: int64(node.ObjectMeta.ResourceVersion),
 		// spec
 		Image: node.Spec.Image,
 		Cmd:   strings.Join(node.Spec.Cmd, " "),
 		// status
 		ContainerID: sql.NullString{String: node.Status.ContainerID, Valid: true},
 	})
-	return err
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// TODO: Signal conflict errors
+			return nil, nil
+		}
+		return nil, err
+	}
+	return dbNodeToDomain(row), nil
 }

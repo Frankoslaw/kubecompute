@@ -17,10 +17,9 @@ func (nn NamespacedName) ObjectMeta() ObjectMeta {
 }
 
 type ObjectMeta struct {
-	Namespace string `yaml:"namespace"`
-	Name      string `yaml:"name"`
-	// to prevent warning from linters about NamespacedName and ObjectMeta being identical
-	_ struct{}
+	Namespace       string `yaml:"namespace"`
+	Name            string `yaml:"name"`
+	ResourceVersion int    `yaml:"resourceVersion,omitempty"`
 }
 
 func (om *ObjectMeta) NamespacedName() NamespacedName {

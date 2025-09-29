@@ -1,13 +1,14 @@
 -- name: CreateNode :one
 INSERT INTO nodes (
-    namespace, name, image, cmd, container_id
+    namespace, name, image, cmd, container_id, resource_version
 ) VALUES (
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, 1
 )
 ON CONFLICT DO UPDATE SET
     image = excluded.image,
     cmd = excluded.cmd,
     container_id = excluded.container_id,
+    resource_version = excluded.resource_version + 1,
     deleted_at = NULL,
     updated_at = CURRENT_TIMESTAMP
 RETURNING *;
@@ -29,12 +30,14 @@ ORDER BY created_at DESC;
 SELECT * FROM nodes
 ORDER BY created_at DESC;
 
--- name: UpdateNode :exec
+-- name: UpdateNode :one
 UPDATE nodes
-SET image = ?, cmd = ?, container_id = ?, updated_at = CURRENT_TIMESTAMP
-WHERE namespace = ? AND name = ? AND deleted_at IS NULL;
+SET image = ?, cmd = ?, container_id = ?, updated_at = CURRENT_TIMESTAMP,  resource_version = resource_version + 1
+WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND resource_version = ?
+RETURNING *;
 
--- name: SoftDeleteNode :exec
+-- name: SoftDeleteNode :one
 UPDATE nodes
-SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-WHERE namespace = ? AND name = ? AND deleted_at IS NULL;
+SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, resource_version = resource_version + 1
+WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND resource_version = ?
+RETURNING *;

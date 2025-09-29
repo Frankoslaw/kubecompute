@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     -- metadata
     namespace TEXT NOT NULL,
     name TEXT NOT NULL,
+    resource_version INTEGER NOT NULL DEFAULT 1,
     -- spec
     image TEXT NOT NULL,
     cmd TEXT NOT NULL,
