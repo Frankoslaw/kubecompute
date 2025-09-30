@@ -1,10 +1,11 @@
 -- name: CreateNode :one
 INSERT INTO nodes (
-    namespace, name, image, cmd, container_id, resource_version
+    namespace, name, backend, image, cmd, container_id, resource_version
 ) VALUES (
-    ?, ?, ?, ?, ?, 1
+    ?, ?, ?, ?, ?, ?, 1
 )
 ON CONFLICT DO UPDATE SET
+    backend = excluded.backend,
     image = excluded.image,
     cmd = excluded.cmd,
     container_id = excluded.container_id,
@@ -41,4 +42,9 @@ RETURNING *;
 UPDATE nodes
 SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, resource_version = resource_version + 1
 WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND (? = 0 OR resource_version = ?)
+RETURNING *;
+
+-- name: HardDeleteNode :one
+DELETE FROM nodes
+WHERE namespace = ? AND name = ? AND (? = 0 OR resource_version = ?)
 RETURNING *;

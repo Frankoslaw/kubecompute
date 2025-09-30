@@ -20,8 +20,9 @@ func dbNodeToDomain(dbNode db.Node) *domain.Node {
 		},
 		// spec
 		Spec: domain.NodeSpec{
-			Image: dbNode.Image,
-			Cmd:   strings.Split(dbNode.Cmd, " "),
+			Backend: dbNode.Backend,
+			Image:   dbNode.Image,
+			Cmd:     strings.Split(dbNode.Cmd, " "),
 		},
 		// status
 		Status: domain.NodeStatus{
@@ -50,8 +51,9 @@ func (s *SqliteNodeRepository) CreateNode(ctx context.Context, node *domain.Node
 		Namespace: node.ObjectMeta.Namespace,
 		Name:      node.ObjectMeta.Name,
 		// spec
-		Image: node.Spec.Image,
-		Cmd:   strings.Join(node.Spec.Cmd, " "),
+		Backend: node.Spec.Backend,
+		Image:   node.Spec.Image,
+		Cmd:     strings.Join(node.Spec.Cmd, " "),
 		// status
 		ContainerID: sql.NullString{String: node.Status.ContainerID, Valid: true},
 	})
@@ -63,6 +65,24 @@ func (s *SqliteNodeRepository) CreateNode(ctx context.Context, node *domain.Node
 
 func (s *SqliteNodeRepository) SoftDeleteNode(ctx context.Context, node *domain.Node) (*domain.Node, error) {
 	row, err := s.queries.SoftDeleteNode(ctx, db.SoftDeleteNodeParams{
+		Namespace:       node.ObjectMeta.Namespace,
+		Name:            node.ObjectMeta.Name,
+		ResourceVersion: int64(node.ObjectMeta.ResourceVersion),
+		// TODO: Fix this doubled parameter due to sqlc limitations
+		Column3: int64(node.ObjectMeta.ResourceVersion),
+	})
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// TODO: Signal conflict errors
+			return nil, nil
+		}
+		return nil, err
+	}
+	return dbNodeToDomain(row), nil
+}
+
+func (s *SqliteNodeRepository) HardDeleteNode(ctx context.Context, node *domain.Node) (*domain.Node, error) {
+	row, err := s.queries.HardDeleteNode(ctx, db.HardDeleteNodeParams{
 		Namespace:       node.ObjectMeta.Namespace,
 		Name:            node.ObjectMeta.Name,
 		ResourceVersion: int64(node.ObjectMeta.ResourceVersion),

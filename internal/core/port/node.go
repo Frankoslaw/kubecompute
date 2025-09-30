@@ -7,14 +7,16 @@ import (
 )
 
 type NodeRepository interface {
+	// Public methods
 	CreateNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
 	GetNode(ctx context.Context, name domain.NamespacedName) (*domain.Node, error)
 	ListNodes(ctx context.Context, namespace string) ([]*domain.Node, error)
 	UpdateNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
 	SoftDeleteNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
-	// Internal use only
+	// Private methods for reconciler
 	GetNodeWithDeleted(ctx context.Context, name domain.NamespacedName) (*domain.Node, error)
 	ListNodesWithDeleted(ctx context.Context) ([]*domain.Node, error)
+	HardDeleteNode(ctx context.Context, node *domain.Node) (*domain.Node, error)
 }
 
 type NodeService interface {
@@ -41,6 +43,7 @@ type ReconcileResult struct {
 }
 
 type NodeReconciler interface {
+	RegisterProvider(name string, provider NodeProvider)
 	Reconcile(ctx context.Context, req ReconcileRequest) (ReconcileResult, error)
 }
 

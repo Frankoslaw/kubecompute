@@ -13,6 +13,7 @@ type Node struct {
 	Namespace       string
 	Name            string
 	ResourceVersion int64
+	Backend         string
 	Image           string
 	Cmd             string
 	ContainerID     sql.NullString

@@ -17,7 +17,6 @@ func NewNodeHandler(service port.NodeService) *NodeHandler {
 	}
 }
 
-// RegisterRoutes registers Node endpoints
 func (h *NodeHandler) RegisterRoutes(router *gin.Engine) {
 	router.GET("/nodes", h.ListNodesAll)
 	router.GET("/ns/:namespace/nodes", h.ListNodes)
@@ -111,6 +110,10 @@ func (h *NodeHandler) GetNode(c *gin.Context) {
 	node, err := h.service.GetNode(c.Request.Context(), name)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	if node == nil {
+		c.JSON(404, gin.H{"error": "node not found"})
 		return
 	}
 	c.JSON(200, node)

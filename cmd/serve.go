@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"kubecompute/internal/adapter/handler"
 	"kubecompute/internal/adapter/provision"
+	provision_terraform "kubecompute/internal/adapter/provision/terraform"
 	"kubecompute/internal/adapter/repository/sqlc"
 	"kubecompute/internal/core/port"
 	"kubecompute/internal/core/service"
@@ -32,11 +33,17 @@ var serveCmd = &cobra.Command{
 
 		// Setup repository and services
 		repository := sqlc.NewSqlcNodeRepository(conn)
+
 		dockerProvider, err := provision.NewDockerNodeProvider()
 		if err != nil {
 			return err
 		}
-		reconciler := service.NewNodeReconciler(repository, dockerProvider)
+		terraformVirtualboxProvider := provision_terraform.NewVirtualboxNodeProvider()
+
+		reconciler := service.NewNodeReconciler(repository)
+		reconciler.RegisterProvider("docker", dockerProvider)
+		reconciler.RegisterProvider("terraform-virtualbox", terraformVirtualboxProvider)
+		reconciler.RegisterProvider("virtualbox", terraformVirtualboxProvider) // alias, as virtualbox native provider is currently not implemented
 
 		workQueue := util.NewWorkQueue[port.ReconcileRequest](32)
 		controller := service.NewNodeController(repository, reconciler, workQueue)

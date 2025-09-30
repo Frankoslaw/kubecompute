@@ -1,8 +1,9 @@
 package domain
 
 type NodeSpec struct {
-	Image string   `json:"image" yaml:"image"`
-	Cmd   []string `json:"cmd" yaml:"cmd"`
+	Backend string   `json:"backend" yaml:"backend"`
+	Image   string   `json:"image" yaml:"image"`
+	Cmd     []string `json:"cmd" yaml:"cmd"`
 	// TODO: Health and lifecycle specs
 }
 

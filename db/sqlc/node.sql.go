@@ -12,23 +12,25 @@ import (
 
 const createNode = `-- name: CreateNode :one
 INSERT INTO nodes (
-    namespace, name, image, cmd, container_id, resource_version
+    namespace, name, backend, image, cmd, container_id, resource_version
 ) VALUES (
-    ?, ?, ?, ?, ?, 1
+    ?, ?, ?, ?, ?, ?, 1
 )
 ON CONFLICT DO UPDATE SET
+    backend = excluded.backend,
     image = excluded.image,
     cmd = excluded.cmd,
     container_id = excluded.container_id,
     resource_version = excluded.resource_version + 1,
     deleted_at = NULL,
     updated_at = CURRENT_TIMESTAMP
-RETURNING id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at
+RETURNING id, namespace, name, resource_version, backend, image, cmd, container_id, deleted_at, created_at, updated_at
 `
 
 type CreateNodeParams struct {
 	Namespace   string
 	Name        string
+	Backend     string
 	Image       string
 	Cmd         string
 	ContainerID sql.NullString
@@ -38,6 +40,7 @@ func (q *Queries) CreateNode(ctx context.Context, arg CreateNodeParams) (Node, e
 	row := q.db.QueryRowContext(ctx, createNode,
 		arg.Namespace,
 		arg.Name,
+		arg.Backend,
 		arg.Image,
 		arg.Cmd,
 		arg.ContainerID,
@@ -48,6 +51,7 @@ func (q *Queries) CreateNode(ctx context.Context, arg CreateNodeParams) (Node, e
 		&i.Namespace,
 		&i.Name,
 		&i.ResourceVersion,
+		&i.Backend,
 		&i.Image,
 		&i.Cmd,
 		&i.ContainerID,
@@ -59,7 +63,7 @@ func (q *Queries) CreateNode(ctx context.Context, arg CreateNodeParams) (Node, e
 }
 
 const getNode = `-- name: GetNode :one
-SELECT id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at FROM nodes
+SELECT id, namespace, name, resource_version, backend, image, cmd, container_id, deleted_at, created_at, updated_at FROM nodes
 WHERE namespace = ? AND name = ? AND deleted_at IS NULL
 `
 
@@ -76,6 +80,7 @@ func (q *Queries) GetNode(ctx context.Context, arg GetNodeParams) (Node, error) 
 		&i.Namespace,
 		&i.Name,
 		&i.ResourceVersion,
+		&i.Backend,
 		&i.Image,
 		&i.Cmd,
 		&i.ContainerID,
@@ -87,7 +92,7 @@ func (q *Queries) GetNode(ctx context.Context, arg GetNodeParams) (Node, error) 
 }
 
 const getNodeWithDeleted = `-- name: GetNodeWithDeleted :one
-SELECT id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at FROM nodes
+SELECT id, namespace, name, resource_version, backend, image, cmd, container_id, deleted_at, created_at, updated_at FROM nodes
 WHERE namespace = ? AND name = ?
 `
 
@@ -104,6 +109,44 @@ func (q *Queries) GetNodeWithDeleted(ctx context.Context, arg GetNodeWithDeleted
 		&i.Namespace,
 		&i.Name,
 		&i.ResourceVersion,
+		&i.Backend,
+		&i.Image,
+		&i.Cmd,
+		&i.ContainerID,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const hardDeleteNode = `-- name: HardDeleteNode :one
+DELETE FROM nodes
+WHERE namespace = ? AND name = ? AND (? = 0 OR resource_version = ?)
+RETURNING id, namespace, name, resource_version, backend, image, cmd, container_id, deleted_at, created_at, updated_at
+`
+
+type HardDeleteNodeParams struct {
+	Namespace       string
+	Name            string
+	Column3         interface{}
+	ResourceVersion int64
+}
+
+func (q *Queries) HardDeleteNode(ctx context.Context, arg HardDeleteNodeParams) (Node, error) {
+	row := q.db.QueryRowContext(ctx, hardDeleteNode,
+		arg.Namespace,
+		arg.Name,
+		arg.Column3,
+		arg.ResourceVersion,
+	)
+	var i Node
+	err := row.Scan(
+		&i.ID,
+		&i.Namespace,
+		&i.Name,
+		&i.ResourceVersion,
+		&i.Backend,
 		&i.Image,
 		&i.Cmd,
 		&i.ContainerID,
@@ -115,7 +158,7 @@ func (q *Queries) GetNodeWithDeleted(ctx context.Context, arg GetNodeWithDeleted
 }
 
 const listNodes = `-- name: ListNodes :many
-SELECT id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at FROM nodes
+SELECT id, namespace, name, resource_version, backend, image, cmd, container_id, deleted_at, created_at, updated_at FROM nodes
 WHERE deleted_at IS NULL
   AND (? = '' OR namespace = ?)
 ORDER BY created_at DESC
@@ -140,6 +183,7 @@ func (q *Queries) ListNodes(ctx context.Context, arg ListNodesParams) ([]Node, e
 			&i.Namespace,
 			&i.Name,
 			&i.ResourceVersion,
+			&i.Backend,
 			&i.Image,
 			&i.Cmd,
 			&i.ContainerID,
@@ -161,7 +205,7 @@ func (q *Queries) ListNodes(ctx context.Context, arg ListNodesParams) ([]Node, e
 }
 
 const listNodesWithDeleted = `-- name: ListNodesWithDeleted :many
-SELECT id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at FROM nodes
+SELECT id, namespace, name, resource_version, backend, image, cmd, container_id, deleted_at, created_at, updated_at FROM nodes
 ORDER BY created_at DESC
 `
 
@@ -179,6 +223,7 @@ func (q *Queries) ListNodesWithDeleted(ctx context.Context) ([]Node, error) {
 			&i.Namespace,
 			&i.Name,
 			&i.ResourceVersion,
+			&i.Backend,
 			&i.Image,
 			&i.Cmd,
 			&i.ContainerID,
@@ -203,7 +248,7 @@ const softDeleteNode = `-- name: SoftDeleteNode :one
 UPDATE nodes
 SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, resource_version = resource_version + 1
 WHERE namespace = ? AND name = ? AND deleted_at IS NULL AND (? = 0 OR resource_version = ?)
-RETURNING id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at
+RETURNING id, namespace, name, resource_version, backend, image, cmd, container_id, deleted_at, created_at, updated_at
 `
 
 type SoftDeleteNodeParams struct {
@@ -226,6 +271,7 @@ func (q *Queries) SoftDeleteNode(ctx context.Context, arg SoftDeleteNodeParams) 
 		&i.Namespace,
 		&i.Name,
 		&i.ResourceVersion,
+		&i.Backend,
 		&i.Image,
 		&i.Cmd,
 		&i.ContainerID,
@@ -240,7 +286,7 @@ const updateNode = `-- name: UpdateNode :one
 UPDATE nodes
 SET image = ?, cmd = ?, container_id = ?, updated_at = CURRENT_TIMESTAMP, resource_version = resource_version + 1
 WHERE namespace = ?  AND name = ? AND deleted_at IS NULL AND (? = 0 OR resource_version = ?)
-RETURNING id, namespace, name, resource_version, image, cmd, container_id, deleted_at, created_at, updated_at
+RETURNING id, namespace, name, resource_version, backend, image, cmd, container_id, deleted_at, created_at, updated_at
 `
 
 type UpdateNodeParams struct {
@@ -269,6 +315,7 @@ func (q *Queries) UpdateNode(ctx context.Context, arg UpdateNodeParams) (Node, e
 		&i.Namespace,
 		&i.Name,
 		&i.ResourceVersion,
+		&i.Backend,
 		&i.Image,
 		&i.Cmd,
 		&i.ContainerID,

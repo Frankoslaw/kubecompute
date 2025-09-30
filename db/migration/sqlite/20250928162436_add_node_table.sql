@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     name TEXT NOT NULL,
     resource_version INTEGER NOT NULL DEFAULT 1,
     -- spec
+    backend TEXT NOT NULL,
     image TEXT NOT NULL,
     cmd TEXT NOT NULL,
     -- status
