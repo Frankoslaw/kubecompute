@@ -9,6 +9,11 @@
     - [ ] Artifiact stores
 - Error handling:
     - [ ] Diffrentiate does not exist and version conflict errors
+    - [ ] Handle existing resource error for terraform provider and reattempt resync then delete for them
+    - [ ] Terraform do not reconcile if exists as plan does not work correctly for smaller providers
+    - [ ] Allow for disabling spec based resync 
+    - [ ] Allow for status based resync
+    - [ ] Fix deleting terraform backed nodes as they like to get stuck
 - Observability:
     - [ ] Zap
     - [ ] OpenTelemetry

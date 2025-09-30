@@ -3,16 +3,18 @@ package provision_terraform
 import (
 	"bytes"
 	"context"
-	"errors"
-	"fmt"
 	"kubecompute/internal/core/domain"
 	"kubecompute/internal/core/port"
 	"kubecompute/internal/core/util"
-	"log/slog"
-	"os"
 	"path/filepath"
 	"runtime"
 	"text/template"
+
+	"github.com/hashicorp/terraform-exec/tfexec"
+)
+
+var (
+	forceDryRun = false
 )
 
 type TerraformNodeProvider struct {
@@ -20,39 +22,57 @@ type TerraformNodeProvider struct {
 }
 
 func NewVirtualboxNodeProvider() port.NodeProvider {
-	baseDir := util.GetOsWorkDir()
-	tfDir := filepath.Join(baseDir, "terraform")
+	kubecomputeDir := util.GetOsWorkDir()
+	tfDir := filepath.Join(kubecomputeDir, "terraform")
+
 	return &TerraformNodeProvider{tfDir: tfDir}
 }
 
 func (d *TerraformNodeProvider) EnsureNode(ctx context.Context, desired *domain.Node) (bool, error) {
-	dir := filepath.Join(d.tfDir, desired.ObjectMeta.NamespacedName().String())
-	slog.Info("ensuring terraform node", "dir", dir)
-
-	// Make sure directory exists
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return false, fmt.Errorf("failed to create directory %s: %w", dir, err)
-	}
-
-	prog, err := createTerraformProgram(desired)
+	dir, err := ensureTfexecWorkdir(desired.ObjectMeta.NamespacedName())
 	if err != nil {
 		return false, err
 	}
 
-	progFile := filepath.Join(dir, "main.tf")
-	if err := os.WriteFile(progFile, []byte(prog), 0o644); err != nil {
-		return false, fmt.Errorf("failed to write terraform file: %w", err)
+	tf, err := getTfexec(dir)
+	if err != nil {
+		return false, err
 	}
 
-	return false, errors.New("not implemented")
+	prog, err := d.createTerraformProgram(desired)
+	if err != nil {
+		return false, err
+	}
+	initTerraformProject(tf, prog)
+
+	drifted, err := d.terraformApply(tf, forceDryRun)
+	if err != nil {
+		return false, err
+	}
+
+	return drifted, nil
 }
 
 func (d *TerraformNodeProvider) DeleteNode(ctx context.Context, name domain.NamespacedName) (bool, error) {
-	return false, errors.New("not implemented")
+	dir, err := ensureTfexecWorkdir(name)
+	if err != nil {
+		return false, err
+	}
+
+	tf, err := getTfexec(dir)
+	if err != nil {
+		return false, err
+	}
+
+	drifted, err := d.terraformDestroy(tf, forceDryRun)
+	if err != nil {
+		return false, err
+	}
+
+	return drifted, nil
 }
 
-func createTerraformProgram(node *domain.Node) (string, error) {
-	// TODO: improve template handling
+func (d *TerraformNodeProvider) createTerraformProgram(node *domain.Node) (string, error) {
 	_, filename, _, _ := runtime.Caller(0) // 0 = this function
 	dir := filepath.Dir(filename)
 	tmplPath := filepath.Join(dir, "node.tf.tmpl")
@@ -63,20 +83,47 @@ func createTerraformProgram(node *domain.Node) (string, error) {
 	}
 
 	tfNodeSpec := struct {
-		Name   string
-		Image  string
-		CPUs   int
-		Memory string
+		Name string
 	}{
-		Name:   node.ObjectMeta.NamespacedName().String(),
-		Image:  "https://app.vagrantup.com/ubuntu/boxes/bionic64/versions/20180903.0.0/providers/virtualbox.box",
-		CPUs:   1,
-		Memory: "512 mib",
+		Name: node.ObjectMeta.NamespacedName().String(),
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, tfNodeSpec); err != nil {
 		return "", err
 	}
+
 	return buf.String(), nil
+}
+
+func (d *TerraformNodeProvider) terraformApply(tf *tfexec.Terraform, dryRun bool) (bool, error) {
+	drifted, err := tf.Plan(context.Background())
+	if err != nil {
+		return false, err
+	}
+	if dryRun || !drifted {
+		return false, nil
+	}
+
+	err = tf.Apply(context.Background())
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (d *TerraformNodeProvider) terraformDestroy(tf *tfexec.Terraform, dryRun bool) (bool, error) {
+	drifted, err := tf.Plan(context.Background(), tfexec.Destroy(true))
+	if err != nil {
+		return false, err
+	}
+	if dryRun || !drifted {
+		return false, nil
+	}
+
+	err = tf.Destroy(context.Background())
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
